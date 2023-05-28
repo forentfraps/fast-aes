@@ -3,7 +3,7 @@
 extern int _ShiftRows(unsigned char*[]);
 extern int _MixColumn(unsigned long* operand, void* table);
 extern int _Sbox(unsigned char* list, void* table);
-
+extern int _KeyAdd(unsigned char* block, unsigned char* key);
 
 void PrintBlock(bl128 b){
     for(int i =0; i < 16; ++i){
@@ -32,10 +32,15 @@ void MixColumn(unsigned long* val){
     _MixColumn(val, MultiplicationTable);
 }
 
-void KeyAdd(bl128* block, bl128 key){
+// xor in xmm's rather than int wise
+void KeyAdd_slow(bl128* block, bl128 key){
     for(int i = 0; i < 4; ++i){
         block->ints[i] ^= key.ints[i];
     }
+}
+
+void KeyAdd(bl128* block, bl128 key){
+    _KeyAdd(&(block->bytes[0]), &(key.bytes[0]));
 }
 
 

@@ -2,6 +2,7 @@
     global _ShiftRows
     global _MixColumn
     global _Sbox
+    global _KeyAdd
     section .text
 ;rcx -> address of block
 ;rax -> scratch
@@ -39,8 +40,8 @@
 
 ;rcx pointer to 4 bytes
 ;rdx unsigned char** table
-
-    _MixColumn:
+;optimisation: rotate to avoid excessive stack usage
+    _MixColumn_good:
         push r12
         push rbx
         xor r12, r12
@@ -89,6 +90,71 @@
         mov eax, 0
         ret
 
+_MixColumn:
+        push r12
+        push rbx
+        push rdi
+
+        xor rdi, rdi
+        xor r12, r12
+        xor r8, r8
+        xor r9, r9
+        xor r10, r10
+        xor r11, r11
+        mov r8b, [rcx]
+        mov r9b, [rcx + 1]
+        mov r10b, [rcx + 2]
+        mov r11b, [rcx + 3]
+        mov rbx, rcx
+        lea rcx, [rdx + 2 * 256 + r8]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 3 * 256 + r9]
+        xor r12b, [rcx]
+        xor r12b, r10b
+        xor r12b, r11b
+        ; mov [rbx], r12b
+        mov dil, r12b
+        ;;
+        mov r12b, r8b
+        lea rcx, [rdx + 2 * 256 + r9]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 3 * 256 + r10]
+        xor r12b, [rcx]
+        ror rdi, 8
+        xor r12b, r11b
+        ; mov [rbx+1], r12b
+        mov dil, r12b
+
+        ;;
+        mov r12b, r8b
+        ror rdi, 8
+        xor r12b, r9b
+        lea rcx, [rdx + 2 * 256 + r10]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 3 * 256 + r11]
+        xor r12b, [rcx]
+        ; mov [rbx+2], r12b
+
+        mov dil, r12b
+        ;;
+        lea rcx, [rdx + 3 * 256 + r8]
+        ror rdi, 8
+        mov r12b, [rcx]
+        xor r12b, r9b
+        lea rcx, [rdx + 2 * 256 + r11]
+        xor r12b, r10b
+        xor r12b, [rcx]
+        ; mov [rbx+3], r12b
+        mov dil, r12b
+        rol rdi, 8*3
+        mov [rbx], edi
+        pop rdi
+
+        pop rbx
+        pop r12
+        mov eax, 0
+        ret
+
 ;rcx = pointer to bytes to substitute
 ;rdx = table to substiture from
     _Sbox:
@@ -107,3 +173,13 @@
         mov [r9], r8b
         dec rax
         jmp _Sbox_back
+
+
+;rcx - block ptr
+;rdx - key ptr
+    _KeyAdd:
+        movdqu xmm0, [rcx]
+        movdqu xmm1, [rdx]
+        xorps xmm0, xmm1
+        movdqu [rcx], xmm0
+        ret
