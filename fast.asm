@@ -1,6 +1,7 @@
     extern GaloisMul
     global _ShiftRows
     global _MixColumn
+    global _Sbox
     section .text
 ;rcx -> address of block
 ;rax -> scratch
@@ -88,8 +89,21 @@
         mov eax, 0
         ret
 
-;rcx - int input
+;rcx = pointer to bytes to substitute
+;rdx = table to substiture from
+    _Sbox:
+        mov rax, 15
+        xor r10, r10
 
-;r8 - r11 4 input bytes
-;r12 temp intermediate sum
-;return int in eax
+    _Sbox_back:
+        cmp rax, 0
+        jge _Sbox_Cycle
+        ret
+    _Sbox_Cycle:
+        lea r9, [rcx + rax]
+        mov r10b, [r9]
+        lea r8, [rdx + r10]
+        mov r8b, [r8]
+        mov [r9], r8b
+        dec rax
+        jmp _Sbox_back

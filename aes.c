@@ -2,7 +2,7 @@
 #include "includes.h"
 extern int _ShiftRows(unsigned char*[]);
 extern int _MixColumn(unsigned long* operand, void* table);
-
+extern int _Sbox(unsigned char* list, void* table);
 
 
 void PrintBlock(bl128 b){
@@ -17,10 +17,14 @@ unsigned char GaloisMul(unsigned char op1, unsigned char op2){
 }
 
 
-void SBox(bl128* block){
+void SBox1(bl128* block){
     for (int i = 0; i < 16; i++){
         block->bytes[i] = sbox[block->bytes[i]];
     }
+}
+
+void SBox(bl128* block){
+    _Sbox(&(block->bytes[0]), sbox);
 }
 
 
