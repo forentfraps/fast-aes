@@ -1,4 +1,4 @@
-/* 64 bit linux. */
+/* 64 bit windows */
 #include "includes.h"
 #include <time.h>
 
