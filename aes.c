@@ -1,67 +1,49 @@
 #include "constants.c"
-#include "includes.h"
-extern int _ShiftRows(unsigned char*[]);
-extern int _MixColumn(unsigned long* operand, void* table);
-extern int _Sbox(unsigned char* list, void* table);
-extern int _KeyAdd(unsigned char* block, unsigned char* key);
 
-void PrintBlock(bl128 b){
-    for(int i =0; i < 16; ++i){
-        printf("%x ", b.bytes[i]);
-    }
-    printf("\n");
-}
+extern void _ShiftRows(unsigned char*[]);
+extern void _invShiftRows(unsigned char*[]);
+extern void _MixColumn(unsigned long* operand, void* table);
+extern void _invMixColumn(unsigned long* operand, void* table);
+extern void _Sbox(unsigned char* list, void* table);
+extern void _KeyAdd(unsigned char* block, unsigned char* key);
 
-unsigned char GaloisMul_slow(unsigned char op1, unsigned char op2){
-    return MultiplicationTable[op1][op2];
-}
+union bl128{
+    unsigned long ints[4];
+    unsigned char bytes[16];
+}typedef bl128;
 
+union bl32{
+    unsigned long i;
+    unsigned char bytes[4];
+} typedef bl32;
 
-void SBox_slow(bl128* block){
-    for (int i = 0; i < 16; i++){
-        block->bytes[i] = sbox[block->bytes[i]];
-    }
-}
-
-void SBox_wrapper(bl128* block){
-    _Sbox(&(block->bytes[0]), sbox);
-}
-
-
-void MixColumn_wrapper(unsigned long* val){
-    _MixColumn(val, MultiplicationTable);
-}
-
-// xor in xmm's rather than int wise
-void KeyAdd_slow(bl128* block, bl128 key){
-    for(int i = 0; i < 4; ++i){
-        block->ints[i] ^= key.ints[i];
-    }
-}
-
-void KeyAdd_wrapper(bl128* block, bl128 key){
-    _KeyAdd(&(block->bytes[0]), &(key.bytes[0]));
-}
-
-
-
-void CipherRound(bl128* restrict block, bl128 key){
+void Decrypt(bl128* restrict block, bl128* KeyList){
     unsigned char* ptr = &(block->bytes[0]);
-    _Sbox(ptr, sbox);
-    _ShiftRows(ptr);
-    for (int i = 0; i < 4; ++i){
-        _MixColumn(&(block->ints[i]), MultiplicationTable);
+    _KeyAdd(ptr, &((KeyList[10]).bytes[0]));
+    _invShiftRows(ptr);
+    _Sbox(ptr, rsbox);
+    for (int i = 9; i > 0; --i){
+        _KeyAdd(ptr, &(KeyList[i].bytes[0]));
+        for (int j = 0; j < 4; ++j){
+            _invMixColumn(&(block->ints[j]), MultiplicationTable);
+        }
+        _invShiftRows(ptr);
+        _Sbox(ptr, rsbox);
     }
-    _KeyAdd(ptr, &(key.bytes[0]));
+    _KeyAdd(ptr, &((*KeyList).bytes[0]));
 }
-
-
 
 void Encrypt(bl128* restrict block, bl128* KeyList){
     unsigned char* ptr = &(block->bytes[0]);
     _KeyAdd(ptr, &((*KeyList).bytes[0]));
     for (int i = 0; i < 9; ++i){
-        CipherRound(block, KeyList[i+1]);
+        // CipherRound(block, KeyList[i+1]);
+        _Sbox(ptr, sbox);
+        _ShiftRows(ptr);
+        for (int j = 0; j < 4; ++j){
+            _MixColumn(&(block->ints[j]), MultiplicationTable);
+        }
+        _KeyAdd(ptr, &(KeyList[i+1].bytes[0]));
     }
     _Sbox(ptr, sbox);
     _ShiftRows((unsigned char**)block->bytes);

@@ -1,8 +1,10 @@
-    extern GaloisMul
+    ; extern GaloisMul
     global _ShiftRows
     global _MixColumn
     global _Sbox
     global _KeyAdd
+    global _invShiftRows
+    global _invMixColumn
     section .text
 ;rcx -> address of block
 ;rax -> scratch
@@ -19,8 +21,8 @@
 
         mov dl, [rcx + 2]
         mov al, [rcx + 10]
-        mov [rcx + 2], al
         mov [rcx + 10], dl
+        mov [rcx + 2], al
 
         mov dl, [rcx + 6]
         mov al, [rcx + 14]
@@ -35,13 +37,45 @@
         mov al, [rcx + 7]
         mov [rcx + 11], al
         mov [rcx + 7], dl
-        mov eax, 0
         ret
+
+    _invShiftRows:
+        mov dl, [rcx + 1]
+        mov al, [rcx + 13]
+        mov [rcx + 1], al
+        mov al, [rcx + 9]
+        mov [rcx + 13], al
+        mov al, [rcx + 5]
+        mov [rcx + 9], al
+        mov [rcx + 5], dl
+
+        mov dl, [rcx + 2]
+        mov al, [rcx + 10]
+        mov [rcx + 10], dl
+        mov [rcx + 2], al
+
+        mov dl, [rcx + 6]
+        mov al, [rcx + 14]
+        mov [rcx + 6], al
+        mov [rcx + 14], dl
+
+        mov dl, [rcx + 7]
+        mov al, [rcx + 11]
+        mov [rcx + 7], al
+        mov al, [rcx + 15]
+        mov [rcx + 11], al
+        mov al, [rcx + 3]
+        mov [rcx + 15], al
+        mov [rcx + 3], dl
+        ret
+
+
+
 
 ;rcx pointer to 4 bytes
 ;rdx unsigned char** table
-;optimisation: rotate to avoid excessive stack usage
-    _MixColumn_good:
+;optimisation: rotate to avoid excessive stack usage??
+    _MixColumn_meh:
         push r12
         push rbx
         xor r12, r12
@@ -149,18 +183,89 @@ _MixColumn:
         rol rdi, 8*3
         mov [rbx], edi
         pop rdi
-
         pop rbx
         pop r12
-        mov eax, 0
+        ; mov eax, 0
         ret
+;
+    _invMixColumn:
+        push r12
+        push rbx
+        push rdi
+
+        xor rdi, rdi
+        xor r12, r12
+        xor r8, r8
+        xor r9, r9
+        xor r10, r10
+        xor r11, r11
+        mov r8b, [rcx]
+        mov r9b, [rcx + 1]
+        mov r10b, [rcx + 2]
+        mov r11b, [rcx + 3]
+        mov rbx, rcx
+        ;;
+        lea rcx, [rdx + 0xe * 256 + r8]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xb * 256 + r9]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xd * 256 + r10]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 9 * 256 + r11]
+        xor r12b, [rcx]
+        mov dil, r12b
+        ;;
+        xor r12, r12
+        lea rcx, [rdx + 9 * 256 + r8]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xe * 256 + r9]
+        xor r12b, [rcx]
+        ror rdi, 8
+        lea rcx, [rdx + 0xb * 256 + r10]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xd * 256 + r11]
+        xor r12b, [rcx]
+        mov dil, r12b
+        ;;
+        xor r12, r12
+        lea rcx, [rdx + 0xd * 256 + r8]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 9 * 256 + r9]
+        xor r12b, [rcx]
+        ror rdi, 8
+        lea rcx, [rdx + 0xe * 256 + r10]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xb * 256 + r11]
+        xor r12b, [rcx]
+        mov dil, r12b
+        ;;
+        xor r12, r12
+        lea rcx, [rdx + 0xb * 256 + r8]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xd * 256 + r9]
+        xor r12b, [rcx]
+        ror rdi, 8
+        lea rcx, [rdx + 9 * 256 + r10]
+        xor r12b, [rcx]
+        lea rcx, [rdx + 0xe * 256 + r11]
+        xor r12b, [rcx]
+        mov dil, r12b
+        ;;
+        rol rdi, 8*3
+        mov [rbx], edi
+
+        pop rdi
+        pop rbx
+        pop r12
+
+        ret
+
 
 ;rcx = pointer to bytes to substitute
 ;rdx = table to substiture from
     _Sbox:
         mov rax, 15
         xor r10, r10
-
     _Sbox_back:
         cmp rax, 0
         jge _Sbox_Cycle
