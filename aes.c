@@ -1,4 +1,6 @@
 #include "constants.c"
+// #include "includes.h"
+
 
 extern void _ShiftRows(unsigned char*[]);
 extern void _invShiftRows(unsigned char*[]);
@@ -7,78 +9,74 @@ extern void _invMixColumn(unsigned long* operand, void* table);
 extern void _Sbox(unsigned char* list, void* table);
 extern void _KeyAdd(unsigned char* block, unsigned char* key);
 
-union bl128{
-    unsigned long ints[4];
-    unsigned char bytes[16];
-}typedef bl128;
+// void PrintBlock(unsigned char* block){
+//     for (int i =0; i <16;++i){
+//         printf("%x ", block[i]);
+//     }
+// }
 
-union bl32{
-    unsigned long i;
-    unsigned char bytes[4];
-} typedef bl32;
-
-void Decrypt(bl128* restrict block, bl128* KeyList){
-    unsigned char* ptr = &(block->bytes[0]);
-    _KeyAdd(ptr, &((KeyList[10]).bytes[0]));
-    _invShiftRows(ptr);
-    _Sbox(ptr, rsbox);
+void Decrypt(unsigned char* block, unsigned char** KeyList){
+    _KeyAdd(block, &KeyList[10]);
+    _invShiftRows(block);
+    _Sbox(block, rsbox);
     for (int i = 9; i > 0; --i){
-        _KeyAdd(ptr, &(KeyList[i].bytes[0]));
+        _KeyAdd(block, &KeyList[i]);
         for (int j = 0; j < 4; ++j){
-            _invMixColumn(&(block->ints[j]), MultiplicationTable);
+            _invMixColumn(block + j * sizeof(unsigned long), MultiplicationTable);
         }
-        _invShiftRows(ptr);
-        _Sbox(ptr, rsbox);
+        _invShiftRows(block);
+        _Sbox(block, rsbox);
     }
-    _KeyAdd(ptr, &((*KeyList).bytes[0]));
+    _KeyAdd(block, &KeyList[0]);
 }
 
-void Encrypt(bl128* restrict block, bl128* KeyList){
-    unsigned char* ptr = &(block->bytes[0]);
-    _KeyAdd(ptr, &((*KeyList).bytes[0]));
+void Encrypt(unsigned char* block, unsigned char** KeyList){
+    _KeyAdd(block,&KeyList[0]);
     for (int i = 0; i < 9; ++i){
-        // CipherRound(block, KeyList[i+1]);
-        _Sbox(ptr, sbox);
-        _ShiftRows(ptr);
+        _Sbox(block, sbox);
+        _ShiftRows(block);
         for (int j = 0; j < 4; ++j){
-            _MixColumn(&(block->ints[j]), MultiplicationTable);
+            _MixColumn(block + j * sizeof(int), MultiplicationTable);
         }
-        _KeyAdd(ptr, &(KeyList[i+1].bytes[0]));
+        _KeyAdd(block, &(KeyList[i+1]));
     }
-    _Sbox(ptr, sbox);
-    _ShiftRows((unsigned char**)block->bytes);
-    _KeyAdd(ptr, &((KeyList[10]).bytes[0]));
+    _Sbox(block, sbox);
+    _ShiftRows(block);
+    _KeyAdd(block, &KeyList[10]);
 }
 
-void CopyBlock(bl128 src, bl128* dest){
-    for (int i = 0; i< 4; ++i){
-        dest->ints[i]=src.ints[i];
+void CopyBlock(unsigned char* src, unsigned char* dest){
+    for (int i = 0; i< 16; ++i){
+        dest[i]=src[i];
     }
 }
 
-unsigned long G(unsigned long i32, int i){
-    bl32 a;
-    a.i = i32;
-    unsigned char temp = a.bytes[0];
-    a.bytes[0] = sbox[a.bytes[1]] ^ RC[i+1 % 10];
-    a.bytes[1] = sbox[a.bytes[2]];
-    a.bytes[2] = sbox[a.bytes[3]];
-    a.bytes[3] = sbox[temp];
-    return a.i;
+void G(unsigned char* i32, int i, unsigned char* dest){
+    unsigned char temp = i32[0];
+    i32[0] = sbox[i32[1]] ^ RC[i+1 % 10];
+    i32[1] = sbox[i32[2]];
+    i32[2] = sbox[i32[3]];
+    i32[3] = sbox[temp];
 }
 
+void XorI32(unsigned char* op1, unsigned char* op2, unsigned char* dest){
+    *((unsigned long*)dest) =  *((unsigned long*)op1) ^ *((unsigned long*)op2);
+}
 
-void KeyScheduler(bl128 MasterKey, bl128* dest){
-    bl128 tmp = MasterKey;
-    bl128 scratch;
-    CopyBlock(tmp, dest);
+void KeyScheduler(unsigned char* MasterKey, unsigned char** dest){
+    unsigned char tmp[16];
+    unsigned char scratch[16];
+    unsigned char G_storage[4] = {0,0,0,0};
+    CopyBlock(MasterKey, &tmp);
+    CopyBlock(tmp, &(dest[0]));
     for(int i = 0; i<10;++i){
-        scratch.ints[0]  = G(tmp.ints[3], i) ^ tmp.ints[0];
-        scratch.ints[1] = scratch.ints[0] ^ tmp.ints[1];
-        scratch.ints[2] = scratch.ints[1] ^ tmp.ints[2];
-        scratch.ints[3] = scratch.ints[2] ^ tmp.ints[3];
+        G(&(tmp[3 * sizeof(unsigned long)]), i, G_storage);
+        XorI32(G_storage, &(tmp[0 * sizeof(unsigned long)]), &(scratch[0 * sizeof(unsigned long)]));
+        XorI32(&(scratch[0 * sizeof(unsigned long)]), &(tmp[1 * sizeof(unsigned long)]), &(scratch[1 * sizeof(unsigned long)]));
+        XorI32(&(scratch[1 * sizeof(unsigned long)]), &(tmp[2 * sizeof(unsigned long)]), &(scratch[2 * sizeof(unsigned long)]));
+        XorI32(&(scratch[2 * sizeof(unsigned long)]), &(tmp[3 * sizeof(unsigned long)]), &(scratch[3 * sizeof(unsigned long)]));
         CopyBlock(scratch, &(dest[i+1]));
-        CopyBlock(scratch, &tmp);
+        CopyBlock(scratch, tmp);
     }
 }
 
