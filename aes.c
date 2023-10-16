@@ -69,6 +69,9 @@ void XorI32(unsigned char* op1, unsigned char* op2, unsigned char* dest){
 }
 
 void KeyScheduler(unsigned char* MasterKey, unsigned char* dest){
+    /*
+    MasterKey is 16 bytes long, dest should be 176 bytes long, since it has 11 keys in it
+    */
     unsigned char tmp[16];
     unsigned char scratch[16];
     unsigned char G_storage[4] = {0,0,0,0};
